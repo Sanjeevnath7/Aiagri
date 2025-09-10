@@ -40,25 +40,32 @@ st.title("🌾 Commodity Price Forecast (SARIMAX)")
 # User inputs
 market = st.selectbox("Select Market", sorted(df["Market"].unique()))
 commodity = st.selectbox("Select Commodity", sorted(df["Commodity"].unique()))
-future_months = st.number_input("Months ahead to forecast", min_value=1, max_value=24, value=6)
+user_date = st.date_input("Enter the future date (YYYY-MM-DD)")
 
 # Filter dataset
 filtered_df = df[(df["Market"] == market) & (df["Commodity"] == commodity)]
 monthly_df = filtered_df.groupby(pd.Grouper(key='Date', freq='M'))['Modal Price/Kg'].mean().reset_index()
 monthly_df.set_index('Date', inplace=True)
 
-# SARIMAX Model
-try:
-    sarima_model = SARIMAX(monthly_df['Modal Price/Kg'], order=(1,1,1), seasonal_order=(1,1,1,12))
-    sarima_fit = sarima_model.fit(disp=False)
+# Forecast if user enters a future date
+if st.button("Get Forecast"):
+    last_date = monthly_df.index[-1]
 
-    forecast = sarima_fit.forecast(steps=future_months)
-    future_dates = pd.date_range(start=monthly_df.index[-1] + pd.DateOffset(months=1),
-                                 periods=future_months, freq='M')
+    if pd.to_datetime(user_date) <= last_date:
+        st.warning("⚠ Please enter a date after the dataset's last date.")
+    else:
+        # Calculate months ahead
+        months_ahead = (pd.to_datetime(user_date).year - last_date.year) * 12 + (pd.to_datetime(user_date).month - last_date.month)
 
-    st.subheader(f"📢 Forecasted Prices for {commodity} in {market}")
-    forecast_df = pd.DataFrame({"Month": future_dates.strftime("%Y-%m"), "Forecasted Price": forecast.round(2)})
-    st.write(forecast_df)
+        try:
+            # SARIMAX Model
+            sarima_model = SARIMAX(monthly_df['Modal Price/Kg'], order=(1,1,1), seasonal_order=(1,1,1,12))
+            sarima_fit = sarima_model.fit(disp=False)
 
-except Exception as e:
-    st.error(f"Model failed: {e}")
+            forecast = sarima_fit.forecast(steps=months_ahead)
+            forecast_value = forecast.iloc[-1]
+
+            st.success(f"📢 Forecasted Price for {commodity} in {market} on {user_date}: *{forecast_value:.2f} INR/kg*")
+
+        except Exception as e:
+            st.error(f"Model failed: {e}")
