@@ -1,16 +1,10 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.linear_model import LinearRegression
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_absolute_error
-import xgboost as xgb
-from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
 # ---------------------------
-# Load / Generate Synthetic Data
+# Generate Synthetic Data
 # ---------------------------
 @st.cache_data
 def generate_data():
@@ -24,15 +18,12 @@ def generate_data():
     for date in dates:
         for market in markets:
             for crop in commodities:
-                price = {
-                    "Price/Kg": np.random.randint(10, 100)
-                  
-                }
+                price = np.random.randint(30, 50)  # modal price
                 data.append({
                     "Date": date,
                     "Market": market,
                     "Commodity": crop,
-                    **price
+                    "Modal Price/Kg": price
                 })
 
     df = pd.DataFrame(data)
@@ -44,52 +35,30 @@ df = generate_data()
 # ---------------------------
 # Streamlit UI
 # ---------------------------
-st.title("🌾 Agri Commodity Price Dashboard")
+st.title("🌾 Commodity Price Forecast (SARIMAX)")
 
-# Sidebar filters
-market = st.sidebar.selectbox("Select Market", sorted(df["Market"].unique()))
-commodity = st.sidebar.selectbox("Select Commodity", sorted(df["Commodity"].unique()))
+# User inputs
+market = st.selectbox("Select Market", sorted(df["Market"].unique()))
+commodity = st.selectbox("Select Commodity", sorted(df["Commodity"].unique()))
+future_months = st.number_input("Months ahead to forecast", min_value=1, max_value=24, value=6)
 
+# Filter dataset
 filtered_df = df[(df["Market"] == market) & (df["Commodity"] == commodity)]
-
-st.subheader(f"📊 Price Trend: {commodity} in {market}")
-st.line_chart(filtered_df.set_index("Date")["Price/Kg"])
-
-# ---------------------------
-# ML Model: Linear Regression
-# ---------------------------
-X = pd.get_dummies(df[['Market', 'Commodity']])
-y = df['Price/Kg']
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-lr_model = LinearRegression()
-lr_model.fit(X_train, y_train)
-y_pred = lr_model.predict(X_test)
-mae = mean_absolute_error(y_test, y_pred)
-
-st.subheader("🤖 Machine Learning Model")
-st.write(f"Linear Regression MAE: *{mae:.2f} INR*")
-
-# ---------------------------
-# Forecast with ARIMA
-# ---------------------------
-st.subheader("📈 ARIMA Forecast (Next 12 Months)")
-monthly_df = df.groupby(pd.Grouper(key='Date', freq='M'))['Price/Kg'].mean().reset_index()
+monthly_df = filtered_df.groupby(pd.Grouper(key='Date', freq='M'))['Modal Price/Kg'].mean().reset_index()
 monthly_df.set_index('Date', inplace=True)
 
+# SARIMAX Model
 try:
-    arima_model = ARIMA(monthly_df['Price/Kg'], order=(1,1,1))
-    arima_fit = arima_model.fit()
-    forecast_steps = 12
-    arima_forecast = arima_fit.forecast(steps=forecast_steps)
-    future_months = pd.date_range(start=monthly_df.index[-1] + pd.DateOffset(months=1),
-                                  periods=forecast_steps, freq='M')
+    sarima_model = SARIMAX(monthly_df['Modal Price/Kg'], order=(1,1,1), seasonal_order=(1,1,1,12))
+    sarima_fit = sarima_model.fit(disp=False)
 
-    fig, ax = plt.subplots(figsize=(10,4))
-    ax.plot(monthly_df.index, monthly_df['Price/Kg'], label="Actual Price")
-    ax.plot(future_months, arima_forecast, '--', label="Forecast", color="red")
-    ax.set_title("ARIMA Forecast")
-    ax.legend()
-    st.pyplot(fig)
+    forecast = sarima_fit.forecast(steps=future_months)
+    future_dates = pd.date_range(start=monthly_df.index[-1] + pd.DateOffset(months=1),
+                                 periods=future_months, freq='M')
+
+    st.subheader(f"📢 Forecasted Prices for {commodity} in {market}")
+    forecast_df = pd.DataFrame({"Month": future_dates.strftime("%Y-%m"), "Forecasted Price": forecast.round(2)})
+    st.write(forecast_df)
+
 except Exception as e:
-    st.warning(f"ARIMA failed: {e}")
+    st.error(f"Model failed: {e}")
