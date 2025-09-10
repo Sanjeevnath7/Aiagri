@@ -25,9 +25,8 @@ def generate_data():
         for market in markets:
             for crop in commodities:
                 price = {
-                    "Min Price/Kg": np.random.randint(15, 30),
-                    "Modal Price/Kg": np.random.randint(30, 50),
-                    "Max Price/Kg": np.random.randint(50, 100)
+                    "Price/Kg": np.random.randint(10, 100)
+                  
                 }
                 data.append({
                     "Date": date,
@@ -54,13 +53,13 @@ commodity = st.sidebar.selectbox("Select Commodity", sorted(df["Commodity"].uniq
 filtered_df = df[(df["Market"] == market) & (df["Commodity"] == commodity)]
 
 st.subheader(f"📊 Price Trend: {commodity} in {market}")
-st.line_chart(filtered_df.set_index("Date")["Modal Price/Kg"])
+st.line_chart(filtered_df.set_index("Date")["Price/Kg"])
 
 # ---------------------------
 # ML Model: Linear Regression
 # ---------------------------
 X = pd.get_dummies(df[['Market', 'Commodity']])
-y = df['Modal Price/Kg']
+y = df['Price/Kg']
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
 lr_model = LinearRegression()
@@ -75,11 +74,11 @@ st.write(f"Linear Regression MAE: *{mae:.2f} INR*")
 # Forecast with ARIMA
 # ---------------------------
 st.subheader("📈 ARIMA Forecast (Next 12 Months)")
-monthly_df = df.groupby(pd.Grouper(key='Date', freq='M'))['Modal Price/Kg'].mean().reset_index()
+monthly_df = df.groupby(pd.Grouper(key='Date', freq='M'))['Price/Kg'].mean().reset_index()
 monthly_df.set_index('Date', inplace=True)
 
 try:
-    arima_model = ARIMA(monthly_df['Modal Price/Kg'], order=(1,1,1))
+    arima_model = ARIMA(monthly_df['Price/Kg'], order=(1,1,1))
     arima_fit = arima_model.fit()
     forecast_steps = 12
     arima_forecast = arima_fit.forecast(steps=forecast_steps)
@@ -87,7 +86,7 @@ try:
                                   periods=forecast_steps, freq='M')
 
     fig, ax = plt.subplots(figsize=(10,4))
-    ax.plot(monthly_df.index, monthly_df['Modal Price/Kg'], label="Actual Price")
+    ax.plot(monthly_df.index, monthly_df['Price/Kg'], label="Actual Price")
     ax.plot(future_months, arima_forecast, '--', label="Forecast", color="red")
     ax.set_title("ARIMA Forecast")
     ax.legend()
