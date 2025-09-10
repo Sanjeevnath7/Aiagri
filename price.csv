@@ -1,0 +1,76 @@
+No.,State,District,Market,Commodity,Variety,Grade,Arrival Date,Min Price,Max Price,Modal Price
+1,Himachal Pradesh,Kangra,Kangra(Baijnath),Potato,Potato,FAQ,09/09/2025,1600,2700,1600
+2,Kerala,Kozhikode(Calicut),Palayam,Potato,Other,FAQ,09/09/2025,1900,2100,2000
+3,Nagaland,Kohima,Kohima,Potato,Potato,FAQ,09/09/2025,4000,4200,4100
+4,Punjab,Ludhiana,Sahnewal,Potato,Potato,FAQ,09/09/2025,1000,1000,1000
+5,Tamil Nadu,Dharmapuri,Pennagaram(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,3300,3500,3500
+6,Tamil Nadu,Krishnagiri,Krishnagiri(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,2400,2800,2800
+7,Tamil Nadu,Madurai,Chokkikulam(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,4200,4800,4800
+8,Tamil Nadu,Namakkal,Paramathivelur(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,3500,4000,4000
+9,Tamil Nadu,The Nilgiris,Udhagamandalam(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,4000,4500,4500
+10,Uttar Pradesh,Bulandshahar,Gulavati,Potato,Desi,FAQ,09/09/2025,1100,1300,1200
+11,Uttar Pradesh,Hathras,Shadabad,Potato,Desi,FAQ,09/09/2025,1500,1600,1550
+12,West Bengal,Hooghly,Champadanga,Potato,Jyoti,FAQ,09/09/2025,1320,1340,1320
+13,Himachal Pradesh,Kangra,Dharamshala,Potato,Other,FAQ,09/09/2025,1400,3000,2200
+14,Punjab,Amritsar,Rayya,Potato,Other,FAQ,09/09/2025,1500,1500,1500
+15,Punjab,Tarntaran,Tarantaran,Potato,Other,FAQ,09/09/2025,70000,90000,80000
+16,Rajasthan,Churu,Churu,Potato,(Red Nanital),Non-FAQ,09/09/2025,1100,1300,1200
+17,Tamil Nadu,Chengalpattu,Guduvancheri(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,2500,3500,3500
+18,Tamil Nadu,Erode,Gobichettipalayam(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,3800,4000,4000
+19,Tamil Nadu,Pudukkottai,Gandarvakottai(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,3500,4000,4000
+20,Tamil Nadu,Sivaganga,Sivagangai (Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,5000,5000,5000
+21,Tamil Nadu,Theni,Andipatti(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,2600,3000,3000
+22,Tamil Nadu,Thiruvannamalai,Polur(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,3600,4000,4000
+23,Tamil Nadu,Virudhunagar,Aruppukottai(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,3500,4000,4000
+24,Tripura,North Tripura,Dasda,Potato,Local,FAQ,09/09/2025,1700,1900,1800
+25,Uttar Pradesh,Etah,Awagarh,Potato,Desi,FAQ,09/09/2025,90000,1200,1000
+26,Uttar Pradesh,Khiri (Lakhimpur),Maigalganj,Potato,Desi,FAQ,09/09/2025,1600,1650,1625
+27,West Bengal,Uttar Dinajpur,Islampur,Potato,Local,FAQ,09/09/2025,1080,1120,1100
+28,Bihar,Rohtas,Natwar,Potato,Jyoti,FAQ,09/09/2025,1200,1400,1300
+29,Himachal Pradesh,Kangra,Palampur,Potato,Other,FAQ,09/09/2025,1200,2400,2000
+30,Odisha,Dhenkanal,Hindol,Potato,Potato,Non-FAQ,09/09/2025,1700,2000,1800
+31,Tamil Nadu,Ariyalur,Ariyalur(Uzhavar Sandhai),Potato,(Red Nanital),Local,09/09/2025,8000,9400,9400
+32,Tamil Nadu,Erode,Thalavadi(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,3000,3500,3500
+33,Tamil Nadu,Kancheepuram,Kancheepuram(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,2500,3000,3000
+34,Tamil Nadu,Thirupathur,Natrampalli(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,4000,4500,4500
+35,Tamil Nadu,Thirupathur,Vaniyampadi(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,3000,3000,3000
+36,Tamil Nadu,Thirupur,Dharapuram(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,3000,3500,3500
+37,Tamil Nadu,Villupuram,Ulundurpettai,Potato,(Red Nanital),Local,09/09/2025,3600,3600,3600
+38,Tamil Nadu,Virudhunagar,Kariyapatti(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,5500,6000,6000
+39,Uttar Pradesh,Balrampur,Panchpedwa,Potato,Potato,FAQ,09/09/2025,1100,1400,1200
+40,Uttar Pradesh,Shamli,Kairana,Potato,Desi,FAQ,09/09/2025,1000,1100,1050
+41,West Bengal,Medinipur(W),Ghatal,Potato,Jyoti,FAQ,09/09/2025,1300,1400,1350
+42,West Bengal,Uttar Dinajpur,Raiganj,Potato,Other,FAQ,09/09/2025,1080,1120,1100
+43,Haryana,Gurgaon,Gurgaon,Potato,Other,FAQ,09/09/2025,80000,1200,1000
+44,Haryana,Rewari,Kosli,Potato,Other,FAQ,09/09/2025,1000,1000,1000
+45,Kerala,Ernakulam,Piravam,Potato,Other,FAQ,09/09/2025,3300,4500,4000
+46,Kerala,Malappuram,Kottakkal,Potato,Other,FAQ,09/09/2025,2300,2500,2400
+47,Punjab,Mohali,Lalru,Potato,Other,FAQ,09/09/2025,1000,1200,1200
+48,Tamil Nadu,Coimbatore,Mettupalayam(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,3500,4000,4000
+49,Tamil Nadu,Dharmapuri,Dharmapuri(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,2800,3000,3000
+50,Tamil Nadu,Erode,Perundurai(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,3800,4000,4000
+51,Tamil Nadu,Krishnagiri,Denkanikottai(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,2500,3000,3000
+52,Tamil Nadu,Namakkal,Kumarapalayam(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,3000,3500,3500
+53,Tamil Nadu,Salem,Sooramangalam(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,3200,6000,6000
+54,Tamil Nadu,Thanjavur,Pattukottai(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,3500,3500,3500
+55,Tamil Nadu,Theni,Bodinayakanur(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,3000,3200,3200
+56,Tamil Nadu,Virudhunagar,Sivakasi(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,5500,6000,6000
+57,West Bengal,Hooghly,Kalipur,Potato,Jyoti,FAQ,09/09/2025,1280,1300,1300
+58,Haryana,Bhiwani,Bhiwani,Potato,Potato,FAQ,09/09/2025,1240,1780,1540
+59,Haryana,Rewari,Rewari,Potato,Other,Non-FAQ,09/09/2025,1000,1600,1300
+60,Himachal Pradesh,Kangra,Kangra(Jaisinghpur),Potato,Potato,FAQ,09/09/2025,1400,2600,2000
+61,Rajasthan,Ganganagar,Sriganganagar (F&V),Potato,Other,FAQ,09/09/2025,90000,1100,1000
+62,Tamil Nadu,Coimbatore,Udumalpet,Potato,(Red Nanital),Local,09/09/2025,3500,4000,4000
+63,Tamil Nadu,Cuddalore,Panruti(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,4000,4000,4000
+64,Tamil Nadu,Cuddalore,Viruthachalam(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,4000,4000,4000
+65,Tamil Nadu,Kallakuruchi,Sankarapuram(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,3500,3500,3500
+66,Tamil Nadu,Kancheepuram,Sunguvarchatram(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,2500,3000,3000
+67,Tamil Nadu,Nagapattinam,Sirkali(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,3600,4000,4000
+68,Tamil Nadu,Salem,Attayampatti(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,3000,3600,3600
+69,Tamil Nadu,Thiruvannamalai,Chengam(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,3000,3600,3600
+70,Tamil Nadu,Tuticorin,Tuticorin(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,3000,3500,3500
+71,Tamil Nadu,Vellore,Gudiyatham(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,3600,3600,3600
+72,Tamil Nadu,Vellore,Thirupathur,Potato,(Red Nanital),Local,09/09/2025,4500,4500,4500
+73,Tamil Nadu,Virudhunagar,Thalavaipuram(Uzhavar Sandhai ),Potato,(Red Nanital),Local,09/09/2025,2500,3400,3400
+74,Uttar Pradesh,Hathras,Sikandraraau,Potato,Desi,FAQ,09/09/2025,54000,70000,68000
+75,West Bengal,Paschim Bardhaman,Durgapur,Potato,Jyoti,FAQ,09/09/2025,1200,1280,1260
