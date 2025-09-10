@@ -1,67 +1,130 @@
+# agri_connect_prototype.py
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 from statsmodels.tsa.statespace.sarimax import SARIMAX
+import datetime
 
-st.title("Commodity Price Dashboard & Forecast")
+# -------------------------------
+# Dummy database for prototype
+# -------------------------------
+if 'users' not in st.session_state:
+    st.session_state.users = {}  # username: password
 
-# --- Use DataFrame from model.ipynb ---
-# If you have saved your DataFrame as a CSV in model.ipynb, load it here:
-# Example: df = pd.read_csv("data.csv", parse_dates=["Date"])
+if 'posts' not in st.session_state:
+    st.session_state.posts = []  # list of dicts: {"user":..., "content":..., "date":...}
 
-# For demonstration, here's how you would load it:
-# df = pd.read_csv("your_dataframe.csv", parse_dates=["Date"])
+if 'marketplace' not in st.session_state:
+    st.session_state.marketplace = []  # list of dicts: {"user":..., "commodity":..., "qty":..., "price":...}
 
-# If you want to share the DataFrame directly between notebook and app,
-# save it in model.ipynb:
-# df.to_csv("data.csv", index=False)
+# -------------------------------
+# Sidebar - Login / Register
+# -------------------------------
+st.sidebar.title("Farmer Login / Signup")
+action = st.sidebar.radio("Select Action:", ["Login", "Register"])
 
-# Then in app.py:
-df = pd.read_csv("data.csv", parse_dates=["Date"])
+username = st.sidebar.text_input("Username")
+password = st.sidebar.text_input("Password", type="password")
 
-# Sidebar for commodity selection
-commodity = st.sidebar.selectbox("Select Commodity", df["Commodity"].unique())
-filtered_df = df[df["Commodity"] == commodity]
+if action == "Register":
+    if st.sidebar.button("Sign Up"):
+        if username in st.session_state.users:
+            st.sidebar.warning("Username already exists!")
+        else:
+            st.session_state.users[username] = password
+            st.sidebar.success("User registered successfully!")
 
-st.subheader(f"Daily Prices for {commodity}")
-st.dataframe(filtered_df)
+if action == "Login":
+    if st.sidebar.button("Login"):
+        if username in st.session_state.users and st.session_state.users[username] == password:
+            st.session_state.logged_in = username
+            st.sidebar.success(f"Logged in as {username}")
+        else:
+            st.sidebar.error("Invalid credentials")
 
-# Line chart of daily prices
-st.line_chart(filtered_df.set_index("Date")[["Price/Kg"]])
+# -------------------------------
+# Main App
+# -------------------------------
+if 'logged_in' in st.session_state:
+    st.title(f"AgriConnect - Welcome, {st.session_state.logged_in} 🌾")
 
-# Monthly SARIMA Forecast
-st.subheader(f"SARIMA Monthly Forecast for {commodity}")
+    menu = st.radio("Choose Feature:", ["Social Feed", "Post Update", "Marketplace", "Price Prediction"])
 
-# Prepare monthly average price data
-monthly_df = filtered_df.groupby(pd.Grouper(key='Date', freq='M'))['Price/Kg'].mean().reset_index()
-monthly_df.set_index('Date', inplace=True)
+    # -------------------------------
+    # Social Feed
+    # -------------------------------
+    if menu == "Social Feed":
+        st.subheader("Farmer Social Feed")
+        if len(st.session_state.posts) == 0:
+            st.info("No posts yet. Be the first to post!")
+        else:
+            for post in reversed(st.session_state.posts):
+                st.write(f"{post['user']}** ({post['date']}): {post['content']}")
 
-if len(monthly_df) > 1:
-    sarima_model = SARIMAX(monthly_df['Price/Kg'], order=(1,1,1), seasonal_order=(1,1,1,12))
-    sarima_fit = sarima_model.fit(disp=False)
-    forecast_steps = 12
-    sarima_forecast = sarima_fit.forecast(steps=forecast_steps)
-    last_month = monthly_df.index[-1]
-    future_months = pd.date_range(start=last_month + pd.DateOffset(months=1), periods=forecast_steps, freq='M')
+    # -------------------------------
+    # Post Update
+    # -------------------------------
+    elif menu == "Post Update":
+        st.subheader("Create a Post")
+        content = st.text_area("Write your post here...")
+        if st.button("Post"):
+            st.session_state.posts.append({
+                "user": st.session_state.logged_in,
+                "content": content,
+                "date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+            })
+            st.success("Post created!")
 
-    # Plot actual and forecasted prices
-    fig, ax = plt.subplots(figsize=(10, 5))
-    ax.plot(monthly_df.index, monthly_df['Price/Kg'], label="Actual Monthly Avg Price")
-    ax.plot(future_months, sarima_forecast, label="SARIMA Forecast", linestyle='--', color='purple')
-    ax.set_title(f"SARIMA Monthly Forecast Prices for {commodity}")
-    ax.set_xlabel("Month")
-    ax.set_ylabel("Price/Kg")
-    ax.legend()
-    ax.grid(True)
-    plt.xticks(rotation=45)
-    st.pyplot(fig)
+    # -------------------------------
+    # Marketplace
+    # -------------------------------
+    elif menu == "Marketplace":
+        st.subheader("Marketplace")
+        action_market = st.radio("Action:", ["List Commodity", "View Listings"])
 
-    st.write("**Forecast for next 12 months:**")
-    forecast_table = pd.DataFrame({
-        "Month": [d.strftime('%Y-%m') for d in future_months],
-        "Forecasted Price/Kg": sarima_forecast.round(2)
-    })
-    st.dataframe(forecast_table)
-else:
-    st.warning("Not enough monthly data for forecasting.")
+        if action_market == "List Commodity":
+            commodity = st.selectbox("Select Commodity", ["Banana", "Onion", "Maize"])
+            qty = st.number_input("Quantity (Kg)", min_value=1)
+            price = st.number_input("Expected Price (INR/Kg)", min_value=1)
+            if st.button("Add Listing"):
+                st.session_state.marketplace.append({
+                    "user": st.session_state.logged_in,
+                    "commodity": commodity,
+                    "qty": qty,
+                    "price": price
+                })
+                st.success("Listing added!")
+
+        elif action_market == "View Listings":
+            if len(st.session_state.marketplace) == 0:
+                st.info("No listings yet.")
+            else:
+                df_market = pd.DataFrame(st.session_state.marketplace)
+                st.dataframe(df_market)
+
+    # -------------------------------
+    # Price Prediction
+    # -------------------------------
+    elif menu == "Price Prediction":
+        st.subheader("Predict Future Price for a Commodity")
+
+        # Dummy historical price data (monthly average)
+        dates = pd.date_range(start="2023-01-01", end="2024-12-31", freq="M")
+        np.random.seed(0)
+        banana_prices = np.random.randint(30, 50, len(dates))
+        df_prices = pd.DataFrame({"Date": dates, "Banana": banana_prices})
+        df_prices.set_index("Date", inplace=True)
+
+        commodity = st.selectbox("Select Commodity to Predict", ["Banana", "Onion", "Maize"])
+        months_to_predict = st.slider("Months to predict", 1, 12, 3)
+
+        if st.button("Predict"):
+            # Fit SARIMAX model
+            model = SARIMAX(df_prices[commodity], order=(1,1,1), seasonal_order=(1,1,1,12))
+            model_fit = model.fit(disp=False)
+            forecast = model_fit.forecast(steps=months_to_predict)
+
+            st.subheader(f"{commodity} Price Forecast (Next {months_to_predict} months)")
+            for i, value in enumerate(forecast):
+                next_month = df_prices.index[-1] + pd.DateOffset(months=i+1)
+                st.write(f"{next_month.strftime('%Y-%m')}: {value:.2f} INR/kg")
