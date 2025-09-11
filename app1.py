@@ -1,91 +1,132 @@
-# agri_connect_prototype.py
 import streamlit as st
 import pandas as pd
 import numpy as np
-from statsmodels.tsa.statespace.sarimax import SARIMAX
 import datetime
+import requests
+from statsmodels.tsa.statespace.sarimax import SARIMAX
 
-# -------------------------------
-# Dummy database for prototype
-# -------------------------------
+# -----------------------------
+# User Session
+# -----------------------------
 if 'users' not in st.session_state:
-    st.session_state.users = {}  # username: password
+    st.session_state.users = {"farmer": "123"}  # default login
 
 if 'posts' not in st.session_state:
-    st.session_state.posts = []  # list of dicts: {"user":..., "content":..., "date":...}
+    st.session_state.posts = []
 
 if 'marketplace' not in st.session_state:
-    st.session_state.marketplace = []  # list of dicts: {"user":..., "commodity":..., "qty":..., "price":...}
+    st.session_state.marketplace = []
 
-# -------------------------------
-# Sidebar - Login / Register
-# -------------------------------
-st.sidebar.title("Farmer Login / Signup")
-action = st.sidebar.radio("Select Action:", ["Login", "Register"])
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = None
 
-username = st.sidebar.text_input("Username")
-password = st.sidebar.text_input("Password", type="password")
+# -----------------------------
+# Sidebar Login/Register
+# -----------------------------
+st.sidebar.title("🌱 Farmer Login")
 
-if action == "Register":
-    if st.sidebar.button("Sign Up"):
-        if username in st.session_state.users:
-            st.sidebar.warning("Username already exists!")
-        else:
-            st.session_state.users[username] = password
-            st.sidebar.success("User registered successfully!")
+if st.session_state.logged_in:
+    st.sidebar.success(f"Welcome, {st.session_state.logged_in}")
+    if st.sidebar.button("Logout"):
+        st.session_state.logged_in = None
+else:
+    action = st.sidebar.radio("Action:", ["Login", "Register"])
+    username = st.sidebar.text_input("Username")
+    password = st.sidebar.text_input("Password", type="password")
 
-if action == "Login":
-    if st.sidebar.button("Login"):
-        if username in st.session_state.users and st.session_state.users[username] == password:
-            st.session_state.logged_in = username
-            st.sidebar.success(f"Logged in as {username}")
-        else:
-            st.sidebar.error("Invalid credentials")
+    if action == "Register":
+        if st.sidebar.button("Sign Up"):
+            if username in st.session_state.users:
+                st.sidebar.warning("User already exists!")
+            else:
+                st.session_state.users[username] = password
+                st.sidebar.success("Registered successfully!")
 
-# -------------------------------
+    if action == "Login":
+        if st.sidebar.button("Login"):
+            if username in st.session_state.users and st.session_state.users[username] == password:
+                st.session_state.logged_in = username
+                st.sidebar.success(f"Logged in as {username}")
+            else:
+                st.sidebar.error("Invalid credentials")
+
+# -----------------------------
+# Generate Synthetic Market Data
+# -----------------------------
+@st.cache_data
+def generate_data():
+    dates = pd.date_range(start="2023-01-01", end="2024-12-31", freq="D")
+    markets = {
+        "Coimbatore": (11.0, 76.9),
+        "Chennai": (13.08, 80.27),
+        "Tiruppur": (11.1, 77.3),
+        "Salem": (11.65, 78.15),
+        "Erode": (11.34, 77.72)
+    }
+    commodities = ["Banana", "Onion", "Maize"]
+
+    data = []
+    np.random.seed(42)
+    for date in dates:
+        for market in markets.keys():
+            for crop in commodities:
+                price = np.random.randint(30, 50)
+                data.append({"Date": date, "Market": market, "Commodity": crop, "Modal Price/Kg": price})
+
+    df = pd.DataFrame(data)
+    df['Date'] = pd.to_datetime(df['Date'])
+    return df, markets
+
+df, markets = generate_data()
+
+# -----------------------------
+# NASA POWER API Fetcher
+# -----------------------------
+def get_nasa_power(lat, lon, start, end):
+    url = (
+        f"https://power.larc.nasa.gov/api/temporal/daily/point?"
+        f"parameters=T2M,PRECTOTCORR,SOILM_TOT,TSOIL0_10M&community=AG"
+        f"&longitude={lon}&latitude={lat}&start={start}&end={end}&format=JSON"
+    )
+    r = requests.get(url)
+    if r.status_code != 200:
+        return None
+    data = r.json()
+    df = pd.DataFrame(data["properties"]["parameter"])
+    df = df.T
+    df.index = pd.to_datetime(df.index)
+    return df
+
+# -----------------------------
 # Main App
-# -------------------------------
-if 'logged_in' in st.session_state:
-    st.title(f"AgriConnect - Welcome, {st.session_state.logged_in} 🌾")
+# -----------------------------
+if st.session_state.logged_in:
+    st.title(f"🌾 AgriConnect with NASA POWER - Welcome, {st.session_state.logged_in}")
 
-    menu = st.radio("Choose Feature:", ["Social Feed", "Post Update", "Marketplace", "Price Prediction"])
+    menu = st.radio("Select Feature:", ["Social Feed", "Marketplace", "Price Prediction"])
 
-    # -------------------------------
     # Social Feed
-    # -------------------------------
     if menu == "Social Feed":
-        st.subheader("Farmer Social Feed")
-        if len(st.session_state.posts) == 0:
-            st.info("No posts yet. Be the first to post!")
-        else:
-            for post in reversed(st.session_state.posts):
-                st.write(f"{post['user']}** ({post['date']}): {post['content']}")
-
-    # -------------------------------
-    # Post Update
-    # -------------------------------
-    elif menu == "Post Update":
-        st.subheader("Create a Post")
-        content = st.text_area("Write your post here...")
+        st.subheader("📢 Farmer Social Feed")
+        post_text = st.text_area("Write your post")
         if st.button("Post"):
             st.session_state.posts.append({
                 "user": st.session_state.logged_in,
-                "content": content,
+                "content": post_text,
                 "date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
             })
-            st.success("Post created!")
+            st.success("Post added!")
+        for post in reversed(st.session_state.posts):
+            st.info(f"🧑 {post['user']} ({post['date']}): {post['content']}")
 
-    # -------------------------------
     # Marketplace
-    # -------------------------------
     elif menu == "Marketplace":
-        st.subheader("Marketplace")
-        action_market = st.radio("Action:", ["List Commodity", "View Listings"])
-
-        if action_market == "List Commodity":
-            commodity = st.selectbox("Select Commodity", ["Banana", "Onion", "Maize"])
+        st.subheader("🌽 Marketplace")
+        option = st.radio("Choose:", ["List Commodity", "View Listings"])
+        if option == "List Commodity":
+            commodity = st.selectbox("Commodity", ["Banana", "Onion", "Maize"])
             qty = st.number_input("Quantity (Kg)", min_value=1)
-            price = st.number_input("Expected Price (INR/Kg)", min_value=1)
+            price = st.number_input("Price (INR/Kg)", min_value=1)
             if st.button("Add Listing"):
                 st.session_state.marketplace.append({
                     "user": st.session_state.logged_in,
@@ -94,37 +135,61 @@ if 'logged_in' in st.session_state:
                     "price": price
                 })
                 st.success("Listing added!")
-
-        elif action_market == "View Listings":
+        else:
             if len(st.session_state.marketplace) == 0:
                 st.info("No listings yet.")
             else:
-                df_market = pd.DataFrame(st.session_state.marketplace)
-                st.dataframe(df_market)
+                st.dataframe(pd.DataFrame(st.session_state.marketplace))
 
-    # -------------------------------
     # Price Prediction
-    # -------------------------------
     elif menu == "Price Prediction":
-        st.subheader("Predict Future Price for a Commodity")
+        st.subheader("📈 Price Forecast with NASA POWER Data")
 
-        # Dummy historical price data (monthly average)
-        dates = pd.date_range(start="2023-01-01", end="2024-12-31", freq="M")
-        np.random.seed(0)
-        banana_prices = np.random.randint(30, 50, len(dates))
-        df_prices = pd.DataFrame({"Date": dates, "Banana": banana_prices})
-        df_prices.set_index("Date", inplace=True)
+        market = st.selectbox("Select Market", sorted(df["Market"].unique()))
+        commodity = st.selectbox("Select Commodity", sorted(df["Commodity"].unique()))
+        user_date = st.date_input("Future date")
 
-        commodity = st.selectbox("Select Commodity to Predict", ["Banana", "Onion", "Maize"])
-        months_to_predict = st.slider("Months to predict", 1, 12, 3)
+        if st.button("Get Forecast"):
+            filtered_df = df[(df["Market"] == market) & (df["Commodity"] == commodity)]
+            monthly_df = filtered_df.groupby(pd.Grouper(key='Date', freq='M'))['Modal Price/Kg'].mean().reset_index()
+            monthly_df.set_index('Date', inplace=True)
 
-        if st.button("Predict"):
-            # Fit SARIMAX model
-            model = SARIMAX(df_prices[commodity], order=(1,1,1), seasonal_order=(1,1,1,12))
-            model_fit = model.fit(disp=False)
-            forecast = model_fit.forecast(steps=months_to_predict)
+            last_date = monthly_df.index[-1]
 
-            st.subheader(f"{commodity} Price Forecast (Next {months_to_predict} months)")
-            for i, value in enumerate(forecast):
-                next_month = df_prices.index[-1] + pd.DateOffset(months=i+1)
-                st.write(f"{next_month.strftime('%Y-%m')}: {value:.2f} INR/kg")
+            if pd.to_datetime(user_date) <= last_date:
+                st.warning("⚠ Please enter a date after dataset's last date.")
+            else:
+                months_ahead = (pd.to_datetime(user_date).year - last_date.year) * 12 + \
+                               (pd.to_datetime(user_date).month - last_date.month)
+
+                # NASA POWER fetch
+                lat, lon = markets[market]
+                start = monthly_df.index.min().strftime("%Y%m%d")
+                end = monthly_df.index.max().strftime("%Y%m%d")
+                nasa_df = get_nasa_power(lat, lon, start, end)
+
+                if nasa_df is None:
+                    st.error("NASA API failed!")
+                else:
+                    nasa_monthly = nasa_df.resample("M").mean()
+                    combined = monthly_df.join(nasa_monthly, how="inner")
+
+                    y = combined["Modal Price/Kg"]
+                    exog = combined[["T2M", "PRECTOTCORR", "SOILM_TOT", "TSOIL0_10M"]]
+
+                    try:
+                        model = SARIMAX(y, exog=exog, order=(1,1,1), seasonal_order=(1,1,1,12))
+                        fit = model.fit(disp=False)
+
+                        # Future exog → repeat last known values
+                        future_exog = pd.DataFrame([exog.iloc[-1].values] * months_ahead,
+                                                    columns=exog.columns)
+
+                        forecast = fit.forecast(steps=months_ahead, exog=future_exog)
+                        forecast_value = forecast.iloc[-1]
+
+                        st.success(f"🌟 Forecasted Price for {commodity} in {market} on {user_date}: "
+                                   f"{forecast_value:.2f} INR/kg**")
+
+                    except Exception as e:
+                        st.error(f"Model failed: {e}")
