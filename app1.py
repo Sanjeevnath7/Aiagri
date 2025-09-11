@@ -1,59 +1,17 @@
-# agri_connect_openmeteo.py
 import streamlit as st
 import pandas as pd
 import numpy as np
 import datetime
 import requests
+import matplotlib.pyplot as plt
 from statsmodels.tsa.statespace.sarimax import SARIMAX
+from sklearn.preprocessing import StandardScaler
 
-# ----------------------------
-# Dummy users
-# ----------------------------
-if 'users' not in st.session_state:
-    st.session_state.users = {"farmer": "123"}  # default
+st.set_option("deprecation.showPyplotGlobalUse", False)
 
-if 'posts' not in st.session_state:
-    st.session_state.posts = []
-
-if 'marketplace' not in st.session_state:
-    st.session_state.marketplace = []
-
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = None
-
-# ----------------------------
-# Sidebar Login
-# ----------------------------
-st.sidebar.title("🌱 Farmer Login")
-
-if st.session_state.logged_in:
-    st.sidebar.success(f"Welcome, {st.session_state.logged_in}")
-    if st.sidebar.button("Logout"):
-        st.session_state.logged_in = None
-else:
-    action = st.sidebar.radio("Select Action:", ["Login", "Register"])
-    username = st.sidebar.text_input("Username")
-    password = st.sidebar.text_input("Password", type="password")
-
-    if action == "Register":
-        if st.sidebar.button("Sign Up"):
-            if username in st.session_state.users:
-                st.sidebar.warning("User already exists!")
-            else:
-                st.session_state.users[username] = password
-                st.sidebar.success("User registered successfully!")
-
-    if action == "Login":
-        if st.sidebar.button("Login"):
-            if username in st.session_state.users and st.session_state.users[username] == password:
-                st.session_state.logged_in = username
-                st.sidebar.success(f"Logged in as {username}")
-            else:
-                st.sidebar.error("Invalid credentials")
-
-# ----------------------------
-# Generate synthetic price data
-# ----------------------------
+# -------------------------
+# Synthetic Market Price Data
+# -------------------------
 @st.cache_data
 def generate_data():
     dates = pd.date_range(start="2023-01-01", end="2024-12-31", freq="D")
@@ -71,12 +29,14 @@ def generate_data():
     for date in dates:
         for market in markets.keys():
             for crop in commodities:
-                price = np.random.randint(30, 50)
+                base = 40 + 5*np.sin(2*np.pi*date.timetuple().tm_yday/365)
+                noise = np.random.normal(0, 2)
+                price = base + noise
                 data.append({
                     "Date": date,
                     "Market": market,
                     "Commodity": crop,
-                    "Modal Price/Kg": price
+                    "Modal Price/Kg": max(10, min(100, price))
                 })
 
     df = pd.DataFrame(data)
@@ -85,122 +45,126 @@ def generate_data():
 
 df, markets = generate_data()
 
-# ----------------------------
-# Open-Meteo Forecast
-# ----------------------------
-def get_future_weather(lat, lon, days_ahead=30):
-    url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto&forecast_days={min(days_ahead,16)}"
+# -------------------------
+# NASA POWER API (for soil + past weather)
+# -------------------------
+def get_nasa_power(lat, lon, start, end):
+    url = (
+        f"https://power.larc.nasa.gov/api/temporal/daily/point?"
+        f"parameters=T2M,PRECTOTCORR,SOILM_TOT,TSOIL0_10M&community=AG"
+        f"&longitude={lon}&latitude={lat}&start={start}&end={end}&format=JSON"
+    )
     r = requests.get(url)
+    if r.status_code != 200:
+        return None
     data = r.json()
-    df = pd.DataFrame({
-        "Date": pd.to_datetime(data["daily"]["time"]),
-        "T2M": (np.array(data["daily"]["temperature_2m_max"]) + np.array(data["daily"]["temperature_2m_min"])) / 2,
-        "PRECTOTCORR": data["daily"]["precipitation_sum"]
-    })
-    df.set_index("Date", inplace=True)
-
-    # Estimate soil from weather
-    df["SOILM_TOT"] = df["PRECTOTCORR"].rolling(3, min_periods=1).mean() / 100
-    df["TSOIL0_10M"] = df["T2M"] - 2
-
+    df = pd.DataFrame(data["properties"]["parameter"])
+    df = df.T
+    df.index = pd.to_datetime(df.index)
     return df
 
-# ----------------------------
-# Main App
-# ----------------------------
-if st.session_state.logged_in:
-    st.title(f"🌾 AgriConnect with Open-Meteo - Welcome, {st.session_state.logged_in}")
+# -------------------------
+# Open-Meteo API (for forecast)
+# -------------------------
+def get_open_meteo(lat, lon, start_date, end_date):
+    url = (
+        f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}"
+        f"&daily=temperature_2m_max,precipitation_sum&timezone=auto"
+        f"&start_date={start_date}&end_date={end_date}"
+    )
+    r = requests.get(url)
+    if r.status_code != 200:
+        return None
+    data = r.json()
+    df = pd.DataFrame(data["daily"])
+    df["time"] = pd.to_datetime(df["time"])
+    df.set_index("time", inplace=True)
+    return df
 
-    menu = st.radio("Choose Feature:", ["Social Feed", "Marketplace", "Price Prediction"])
+# -------------------------
+# Streamlit App
+# -------------------------
+st.title("🌾 Commodity Price Forecast with Weather + Soil")
 
-    # --- Social Feed ---
-    if menu == "Social Feed":
-        st.subheader("📢 Farmer Social Feed")
-        post_text = st.text_area("Write your post")
-        if st.button("Post"):
-            st.session_state.posts.append({
-                "user": st.session_state.logged_in,
-                "content": post_text,
-                "date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-            })
-            st.success("Post added!")
-        for post in reversed(st.session_state.posts):
-            st.info(f"🧑 {post['user']} ({post['date']}): {post['content']}")
+market = st.selectbox("Select Market", sorted(df["Market"].unique()))
+commodity = st.selectbox("Select Commodity", sorted(df["Commodity"].unique()))
+user_date = st.date_input("Enter future date")
 
-    # --- Marketplace ---
-    elif menu == "Marketplace":
-        st.subheader("🌽 Marketplace")
-        option = st.radio("Choose:", ["List Commodity", "View Listings"])
-        if option == "List Commodity":
-            commodity = st.selectbox("Commodity", ["Banana", "Onion", "Maize"])
-            qty = st.number_input("Quantity (Kg)", min_value=1)
-            price = st.number_input("Price (INR/Kg)", min_value=1)
-            if st.button("Add Listing"):
-                st.session_state.marketplace.append({
-                    "user": st.session_state.logged_in,
-                    "commodity": commodity,
-                    "qty": qty,
-                    "price": price
-                })
-                st.success("Listing added!")
+if st.button("Get Forecast"):
+    filtered_df = df[(df["Market"] == market) & (df["Commodity"] == commodity)]
+    monthly_df = filtered_df.groupby(pd.Grouper(key='Date', freq='M'))['Modal Price/Kg'].mean().reset_index()
+    monthly_df.set_index('Date', inplace=True)
+
+    last_date = monthly_df.index[-1]
+
+    if pd.to_datetime(user_date) <= last_date:
+        st.warning("⚠ Please enter a future date after dataset's last date.")
+    else:
+        # --- Get NASA Data (for visualization only) ---
+        lat, lon = markets[market]
+        start = monthly_df.index.min().strftime("%Y%m%d")
+        end = last_date.strftime("%Y%m%d")
+        nasa_df = get_nasa_power(lat, lon, start, end)
+
+        if nasa_df is not None:
+            st.subheader("🌍 Soil & Weather Conditions (Past - NASA POWER)")
+            fig, ax = plt.subplots(3, 1, figsize=(8, 6))
+            nasa_df["T2M"].plot(ax=ax[0], color="red", label="Temp (°C)")
+            ax[0].set_ylabel("°C")
+            ax[0].legend()
+            nasa_df["PRECTOTCORR"].plot(ax=ax[1], color="blue", label="Rainfall (mm)")
+            ax[1].set_ylabel("mm")
+            ax[1].legend()
+            nasa_df["SOILM_TOT"].plot(ax=ax[2], color="green", label="Soil Moisture")
+            ax[2].set_ylabel("Vol")
+            ax[2].legend()
+            plt.tight_layout()
+            st.pyplot(fig)
         else:
-            if len(st.session_state.marketplace) == 0:
-                st.info("No listings yet.")
-            else:
-                st.dataframe(pd.DataFrame(st.session_state.marketplace))
+            st.error("NASA data fetch failed.")
 
-    # --- Price Prediction ---
-    elif menu == "Price Prediction":
-        st.subheader("📈 Commodity Price Forecast with Weather + Soil")
+        # --- Get Open-Meteo Data for Forecast ---
+        start_forecast = (last_date + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+        end_forecast = user_date.strftime("%Y-%m-%d")
+        meteo_df = get_open_meteo(lat, lon, start_forecast, end_forecast)
 
-        market = st.selectbox("Select Market", sorted(df["Market"].unique()))
-        commodity = st.selectbox("Select Commodity", sorted(df["Commodity"].unique()))
-        user_date = st.date_input("Enter future date")
+        if meteo_df is None:
+            st.error("Open-Meteo forecast fetch failed.")
+        else:
+            st.subheader("🌤 Future Weather Forecast (Open-Meteo)")
+            st.line_chart(meteo_df[["temperature_2m_max", "precipitation_sum"]])
 
-        if st.button("Get Forecast"):
-            filtered_df = df[(df["Market"] == market) & (df["Commodity"] == commodity)]
-            monthly_df = filtered_df.groupby(pd.Grouper(key='Date', freq='M'))['Modal Price/Kg'].mean().reset_index()
-            monthly_df.set_index('Date', inplace=True)
+            # --- Prediction ---
+            y = monthly_df["Modal Price/Kg"]
 
-            last_date = monthly_df.index[-1]
+            # For exog, use Open-Meteo daily avg → monthly mean
+            meteo_monthly = meteo_df.resample("M").mean()
+            exog = pd.DataFrame({
+                "temp": meteo_monthly["temperature_2m_max"],
+                "rain": meteo_monthly["precipitation_sum"]
+            }).fillna(method="ffill")
 
-            if pd.to_datetime(user_date) <= last_date:
-                st.warning("⚠ Please enter a future date beyond dataset range.")
-            else:
-                months_ahead = (pd.to_datetime(user_date).year - last_date.year) * 12 + \
-                               (pd.to_datetime(user_date).month - last_date.month)
+            # Align y with past (train with history)
+            scaler = StandardScaler()
+            exog_hist = np.column_stack([
+                np.random.normal(30, 5, len(y)),  # fake historical temp
+                np.random.normal(5, 2, len(y))   # fake historical rain
+            ])
+            exog_scaled = scaler.fit_transform(exog_hist)
 
-                # Historical price series
-                y = monthly_df["Modal Price/Kg"]
+            try:
+                model = SARIMAX(y, exog=exog_scaled, order=(1,1,1), seasonal_order=(1,1,1,12))
+                fit = model.fit(disp=False)
 
-                # Dummy exogenous vars for training (trend-based)
-                exog = pd.DataFrame({
-                    "T2M": np.linspace(25, 30, len(y)),
-                    "PRECTOTCORR": np.linspace(5, 20, len(y)),
-                    "SOILM_TOT": np.linspace(0.1, 0.3, len(y)),
-                    "TSOIL0_10M": np.linspace(23, 28, len(y))
-                }, index=y.index)
+                # Use Open-Meteo forecast
+                future_exog_scaled = scaler.transform(exog.values)
+                forecast = fit.forecast(steps=len(exog), exog=future_exog_scaled)
+                forecast_value = forecast.iloc[-1]
 
-                try:
-                    model = SARIMAX(y, exog=exog, order=(1,1,1), seasonal_order=(1,1,1,12))
-                    fit = model.fit(disp=False)
+                forecast_value = max(10, min(100, forecast_value))  # clamp realistic
 
-                    # Get Open-Meteo forecast
-                    lat, lon = markets[market]
-                    future_weather = get_future_weather(lat, lon, days_ahead=months_ahead*30)
-                    future_exog = future_weather.resample("M").mean()[["T2M","PRECTOTCORR","SOILM_TOT","TSOIL0_10M"]]
+                st.success(f"🌟 Forecasted Price for {commodity} in {market} on {user_date}: "
+                           f"{forecast_value:.2f} INR/kg**")
 
-                    # Pad if not enough months
-                    if len(future_exog) < months_ahead:
-                        last_vals = future_exog.iloc[-1]
-                        while len(future_exog) < months_ahead:
-                            future_exog.loc[future_exog.index[-1] + pd.offsets.MonthEnd(1)] = last_vals
-
-                    forecast = fit.forecast(steps=months_ahead, exog=future_exog)
-                    forecast_value = forecast.iloc[-1]
-
-                    st.success(f"🌟 Forecasted Price for {commodity} in {market} on {user_date}: "
-                               f"{forecast_value:.2f} INR/kg**")
-
-                except Exception as e:
-                    st.error(f"Model failed: {e}")
+            except Exception as e:
+                st.error(f"Model failed: {e}")
