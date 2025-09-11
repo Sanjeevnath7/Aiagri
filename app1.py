@@ -1,4 +1,3 @@
-# agri_connect_gameified.py
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -6,15 +5,18 @@ import datetime
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
 # -------------------------------
-# Custom CSS for Design
+# Custom CSS with background
 # -------------------------------
 st.markdown("""
 <style>
 body {
-    background-color: #f4f6f9;
+    background-image: url('https://images.unsplash.com/photo-1606041008023-472dfb5e530a'); 
+    background-size: cover;
+    background-attachment: fixed;
+    background-position: center;
 }
 .post-card, .market-card {
-    background: black;
+    background: rgba(255,255,255,0.9);
     padding: 15px;
     margin: 10px 0;
     border-radius: 12px;
@@ -28,7 +30,7 @@ body {
 .profile-box {
     background: linear-gradient(135deg, #4CAF50, #8BC34A);
     padding: 20px;
-    color: black;
+    color: white;
     border-radius: 12px;
     text-align: center;
 }
@@ -46,43 +48,17 @@ body {
 # -------------------------------
 # Dummy database
 # -------------------------------
-if 'users' not in st.session_state:
+if "users" not in st.session_state:
     st.session_state.users = {}
-
-if 'posts' not in st.session_state:
-    st.session_state.posts = []
-
-if 'marketplace' not in st.session_state:
-    st.session_state.marketplace = []
-
-if 'xp' not in st.session_state:
+if "xp" not in st.session_state:
     st.session_state.xp = {}
+if "posts" not in st.session_state:
+    st.session_state.posts = []
+if "marketplace" not in st.session_state:
+    st.session_state.marketplace = {}
 
 # -------------------------------
-# Sidebar - Login / Register
-# -------------------------------
-st.sidebar.title("🌾 Farmer Login / Signup")
-action = st.sidebar.radio("Select Action:", ["Login", "Register"])
-username = st.sidebar.text_input("Username")
-password = st.sidebar.text_input("Password", type="password")
-
-if action == "Register" and st.sidebar.button("Sign Up"):
-    if username in st.session_state.users:
-        st.sidebar.warning("❌ Username already exists!")
-    else:
-        st.session_state.users[username] = password
-        st.session_state.xp[username] = 0
-        st.sidebar.success("✅ User registered successfully!")
-
-if action == "Login" and st.sidebar.button("Login"):
-    if username in st.session_state.users and st.session_state.users[username] == password:
-        st.session_state.logged_in = username
-        st.sidebar.success(f"👨‍🌾 Logged in as {username}")
-    else:
-        st.sidebar.error("❌ Invalid credentials")
-
-# -------------------------------
-# Generate synthetic dataset
+# Generate synthetic dataset for prediction
 # -------------------------------
 @st.cache_data
 def generate_data():
@@ -95,13 +71,9 @@ def generate_data():
     for date in dates:
         for market in markets:
             for crop in commodities:
-                price = np.random.randint(30, 50)  # modal price
-                data.append({
-                    "Date": date,
-                    "Market": market,
-                    "Commodity": crop,
-                    "Modal Price/Kg": price
-                })
+                price = np.random.randint(30, 50)
+                data.append({"Date": date, "Market": market, "Commodity": crop, "Modal Price/Kg": price})
+
     df = pd.DataFrame(data)
     df['Date'] = pd.to_datetime(df['Date'])
     return df
@@ -109,13 +81,42 @@ def generate_data():
 df = generate_data()
 
 # -------------------------------
-# Main App (after login)
+# If not logged in → Login/Register
 # -------------------------------
-if 'logged_in' in st.session_state:
-    user = st.session_state.logged_in
-    st.title(f"🌱 AgriConnect - Welcome, {user}!")
+if "logged_in" not in st.session_state:
+    st.sidebar.title("🌾 Farmer Login / Signup")
+    action = st.sidebar.radio("Select Action:", ["Login", "Register"])
+    username = st.sidebar.text_input("Username")
+    password = st.sidebar.text_input("Password", type="password")
 
-    # Sidebar Profile with XP
+    if action == "Register" and st.sidebar.button("Sign Up"):
+        if username in st.session_state.users:
+            st.sidebar.warning("❌ Username already exists!")
+        else:
+            st.session_state.users[username] = password
+            st.session_state.xp[username] = 0
+            st.sidebar.success("✅ User registered successfully!")
+
+    if action == "Login" and st.sidebar.button("Login"):
+        if username in st.session_state.users and st.session_state.users[username] == password:
+            st.session_state.logged_in = username
+            st.experimental_rerun()
+        else:
+            st.sidebar.error("❌ Invalid credentials")
+
+# -------------------------------
+# If logged in → show app
+# -------------------------------
+else:
+    user = st.session_state.logged_in
+    st.sidebar.success(f"👨‍🌾 Logged in as {user}")
+
+    # 🚪 Logout button
+    if st.sidebar.button("Logout"):
+        del st.session_state.logged_in
+        st.experimental_rerun()
+
+    # Sidebar profile
     st.sidebar.markdown(f"""
     <div class='profile-box'>
         <h3>{user}</h3>
@@ -124,6 +125,8 @@ if 'logged_in' in st.session_state:
     </div>
     """, unsafe_allow_html=True)
 
+    # Main app menu
+    st.title(f"🌱 AgriConnect - Welcome, {user}!")
     menu = st.radio("📌 Choose Feature:", ["Social Feed", "Post Update", "Marketplace", "Price Prediction"])
 
     # -------------------------------
@@ -171,6 +174,8 @@ if 'logged_in' in st.session_state:
             qty = st.number_input("Quantity (Kg)", min_value=1)
             price = st.number_input("Expected Price (INR/Kg)", min_value=1)
             if st.button("Add Listing"):
+                if "marketplace" not in st.session_state:
+                    st.session_state.marketplace = []
                 st.session_state.marketplace.append({
                     "user": user,
                     "commodity": commodity,
@@ -194,13 +199,13 @@ if 'logged_in' in st.session_state:
                     """, unsafe_allow_html=True)
 
     # -------------------------------
-    # Price Prediction (SARIMAX)
+    # Price Prediction
     # -------------------------------
     elif menu == "Price Prediction":
         st.subheader("📈 Commodity Price Forecast (SARIMAX)")
         market = st.selectbox("Select Market", sorted(df["Market"].unique()))
         commodity = st.selectbox("Select Commodity", sorted(df["Commodity"].unique()))
-        user_date = st.date_input("Enter future date")
+        user_date = st.date_input("Enter future date (YYYY-MM-DD)")
 
         if st.button("Get Forecast"):
             filtered_df = df[(df["Market"] == market) & (df["Commodity"] == commodity)]
@@ -208,8 +213,9 @@ if 'logged_in' in st.session_state:
             monthly_df.set_index('Date', inplace=True)
 
             last_date = monthly_df.index[-1]
+
             if pd.to_datetime(user_date) <= last_date:
-                st.warning("⚠ Enter a future date beyond dataset.")
+                st.warning("⚠ Please enter a date after the dataset's last date.")
             else:
                 months_ahead = (pd.to_datetime(user_date).year - last_date.year) * 12 + (pd.to_datetime(user_date).month - last_date.month)
                 try:
@@ -217,7 +223,7 @@ if 'logged_in' in st.session_state:
                     sarima_fit = sarima_model.fit(disp=False)
                     forecast = sarima_fit.forecast(steps=months_ahead)
                     forecast_value = forecast.iloc[-1]
+                    st.success(f"📢 Forecasted Price for {commodity} in {market} on {user_date}: {forecast_value:.2f} INR/kg")
                     st.session_state.xp[user] += 30
-                    st.success(f"📢 Forecasted Price for {commodity} in {market} on {user_date}: {forecast_value:.2f} INR/kg (+30 XP)")
                 except Exception as e:
                     st.error(f"Model failed: {e}")
