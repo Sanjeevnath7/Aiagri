@@ -14,7 +14,7 @@ body {
     background-color: #f4f6f9;
 }
 .post-card, .market-card {
-    background: white;
+    background: yellow;
     padding: 15px;
     margin: 10px 0;
     border-radius: 12px;
