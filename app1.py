@@ -6,7 +6,6 @@ import plotly.express as px
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 import time
 
-st.set_option("deprecation.showPyplotGlobalUse", False)
 
 # ---------------------------------------------------
 # Synthetic Market Price Data
