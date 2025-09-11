@@ -1,17 +1,16 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import datetime
 import requests
-import matplotlib.pyplot as plt
+import plotly.express as px
 from statsmodels.tsa.statespace.sarimax import SARIMAX
-from sklearn.preprocessing import StandardScaler
+import time
 
 st.set_option("deprecation.showPyplotGlobalUse", False)
 
-# -------------------------
+# ---------------------------------------------------
 # Synthetic Market Price Data
-# -------------------------
+# ---------------------------------------------------
 @st.cache_data
 def generate_data():
     dates = pd.date_range(start="2023-01-01", end="2024-12-31", freq="D")
@@ -36,7 +35,7 @@ def generate_data():
                     "Date": date,
                     "Market": market,
                     "Commodity": crop,
-                    "Modal Price/Kg": max(10, min(100, price))
+                    "Modal Price/Kg": price
                 })
 
     df = pd.DataFrame(data)
@@ -45,9 +44,9 @@ def generate_data():
 
 df, markets = generate_data()
 
-# -------------------------
-# NASA POWER API (for soil + past weather)
-# -------------------------
+# ---------------------------------------------------
+# NASA POWER (for Visualization)
+# ---------------------------------------------------
 def get_nasa_power(lat, lon, start, end):
     url = (
         f"https://power.larc.nasa.gov/api/temporal/daily/point?"
@@ -63,108 +62,96 @@ def get_nasa_power(lat, lon, start, end):
     df.index = pd.to_datetime(df.index)
     return df
 
-# -------------------------
-# Open-Meteo API (for forecast)
-# -------------------------
-def get_open_meteo(lat, lon, start_date, end_date):
+# ---------------------------------------------------
+# Open-Meteo (for Prediction)
+# ---------------------------------------------------
+def get_open_meteo_forecast(lat, lon, days_ahead=30):
     url = (
-        f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}"
-        f"&daily=temperature_2m_max,precipitation_sum&timezone=auto"
-        f"&start_date={start_date}&end_date={end_date}"
+        f"https://api.open-meteo.com/v1/forecast?"
+        f"latitude={lat}&longitude={lon}&daily=temperature_2m_max,precipitation_sum&forecast_days={days_ahead}&timezone=auto"
     )
     r = requests.get(url)
     if r.status_code != 200:
         return None
     data = r.json()
-    df = pd.DataFrame(data["daily"])
-    df["time"] = pd.to_datetime(df["time"])
-    df.set_index("time", inplace=True)
+    df = pd.DataFrame({
+        "Date": data["daily"]["time"],
+        "Temp_Max": data["daily"]["temperature_2m_max"],
+        "Rain": data["daily"]["precipitation_sum"]
+    })
+    df["Date"] = pd.to_datetime(df["Date"])
+    df.set_index("Date", inplace=True)
     return df
 
-# -------------------------
-# Streamlit App
-# -------------------------
-st.title("🌾 Commodity Price Forecast with Weather + Soil")
+# ---------------------------------------------------
+# Streamlit UI
+# ---------------------------------------------------
+st.title("🌾 Crop Price Prediction with Weather & Soil Data")
 
-market = st.selectbox("Select Market", sorted(df["Market"].unique()))
-commodity = st.selectbox("Select Commodity", sorted(df["Commodity"].unique()))
-user_date = st.date_input("Enter future date")
+market = st.selectbox("📍 Select Market", sorted(df["Market"].unique()))
+commodity = st.selectbox("🥬 Select Commodity", sorted(df["Commodity"].unique()))
+future_date = st.date_input("📅 Enter Future Date")
 
-if st.button("Get Forecast"):
-    filtered_df = df[(df["Market"] == market) & (df["Commodity"] == commodity)]
-    monthly_df = filtered_df.groupby(pd.Grouper(key='Date', freq='M'))['Modal Price/Kg'].mean().reset_index()
-    monthly_df.set_index('Date', inplace=True)
+if st.button("🚀 Get Forecast"):
+    with st.spinner("Fetching data & training model..."):
+        time.sleep(1.5)
 
-    last_date = monthly_df.index[-1]
+        # Filter price data
+        filtered_df = df[(df["Market"] == market) & (df["Commodity"] == commodity)]
+        monthly_df = filtered_df.groupby(pd.Grouper(key='Date', freq='M'))['Modal Price/Kg'].mean().reset_index()
+        monthly_df.set_index('Date', inplace=True)
+        last_date = monthly_df.index[-1]
 
-    if pd.to_datetime(user_date) <= last_date:
-        st.warning("⚠ Please enter a future date after dataset's last date.")
-    else:
-        # --- Get NASA Data (for visualization only) ---
+        # Fetch NASA historical data (for visualization only)
         lat, lon = markets[market]
         start = monthly_df.index.min().strftime("%Y%m%d")
-        end = last_date.strftime("%Y%m%d")
+        end = monthly_df.index.max().strftime("%Y%m%d")
         nasa_df = get_nasa_power(lat, lon, start, end)
 
         if nasa_df is not None:
-            st.subheader("🌍 Soil & Weather Conditions (Past - NASA POWER)")
-            fig, ax = plt.subplots(3, 1, figsize=(8, 6))
-            nasa_df["T2M"].plot(ax=ax[0], color="red", label="Temp (°C)")
-            ax[0].set_ylabel("°C")
-            ax[0].legend()
-            nasa_df["PRECTOTCORR"].plot(ax=ax[1], color="blue", label="Rainfall (mm)")
-            ax[1].set_ylabel("mm")
-            ax[1].legend()
-            nasa_df["SOILM_TOT"].plot(ax=ax[2], color="green", label="Soil Moisture")
-            ax[2].set_ylabel("Vol")
-            ax[2].legend()
-            plt.tight_layout()
-            st.pyplot(fig)
+            nasa_monthly = nasa_df.resample("M").mean()
+            fig = px.line(nasa_monthly, x=nasa_monthly.index, y=["T2M","PRECTOTCORR","SOILM_TOT","TSOIL0_10M"],
+                          title="🌍 NASA POWER: Soil & Weather Trends", markers=True)
+            st.plotly_chart(fig, use_container_width=True)
+
+        # Ensure future date valid
+        if pd.to_datetime(future_date) <= last_date:
+            st.warning("⚠ Please enter a future date after dataset's last date.")
         else:
-            st.error("NASA data fetch failed.")
+            months_ahead = (pd.to_datetime(future_date).year - last_date.year) * 12 + \
+                           (pd.to_datetime(future_date).month - last_date.month)
 
-        # --- Get Open-Meteo Data for Forecast ---
-        start_forecast = (last_date + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
-        end_forecast = user_date.strftime("%Y-%m-%d")
-        meteo_df = get_open_meteo(lat, lon, start_forecast, end_forecast)
+            # Get Open-Meteo forecast
+            openmeteo_df = get_open_meteo_forecast(lat, lon, days_ahead=months_ahead*30)
+            if openmeteo_df is None:
+                st.error("❌ Failed to fetch Open-Meteo forecast")
+            else:
+                st.write("📊 Open-Meteo Forecast (sample)", openmeteo_df.head())
 
-        if meteo_df is None:
-            st.error("Open-Meteo forecast fetch failed.")
-        else:
-            st.subheader("🌤 Future Weather Forecast (Open-Meteo)")
-            st.line_chart(meteo_df[["temperature_2m_max", "precipitation_sum"]])
+                # Aggregate to monthly
+                openmeteo_monthly = openmeteo_df.resample("M").mean()
 
-            # --- Prediction ---
-            y = monthly_df["Modal Price/Kg"]
+                # Train SARIMAX
+                y = monthly_df["Modal Price/Kg"]
+                exog = openmeteo_monthly.iloc[:len(y)].reindex(y.index).fillna(method="ffill")
 
-            # For exog, use Open-Meteo daily avg → monthly mean
-            meteo_monthly = meteo_df.resample("M").mean()
-            exog = pd.DataFrame({
-                "temp": meteo_monthly["temperature_2m_max"],
-                "rain": meteo_monthly["precipitation_sum"]
-            }).fillna(method="ffill")
+                try:
+                    model = SARIMAX(y, exog=exog, order=(1,1,1), seasonal_order=(1,1,1,12))
+                    fit = model.fit(disp=False)
 
-            # Align y with past (train with history)
-            scaler = StandardScaler()
-            exog_hist = np.column_stack([
-                np.random.normal(30, 5, len(y)),  # fake historical temp
-                np.random.normal(5, 2, len(y))   # fake historical rain
-            ])
-            exog_scaled = scaler.fit_transform(exog_hist)
+                    # Future exog
+                    future_exog = openmeteo_monthly.tail(months_ahead)
+                    forecast = fit.forecast(steps=months_ahead, exog=future_exog)
+                    forecast_value = forecast.iloc[-1]
 
-            try:
-                model = SARIMAX(y, exog=exog_scaled, order=(1,1,1), seasonal_order=(1,1,1,12))
-                fit = model.fit(disp=False)
+                    # 🎬 Animated chart
+                    forecast_df = pd.DataFrame({"Date": forecast.index, "Forecast Price": forecast.values})
+                    fig2 = px.line(forecast_df, x="Date", y="Forecast Price", title="📈 Forecast Animation", markers=True)
+                    fig2.update_traces(line=dict(dash="dot"))
+                    st.plotly_chart(fig2, use_container_width=True)
 
-                # Use Open-Meteo forecast
-                future_exog_scaled = scaler.transform(exog.values)
-                forecast = fit.forecast(steps=len(exog), exog=future_exog_scaled)
-                forecast_value = forecast.iloc[-1]
+                    st.success(f"🌟 Forecasted Price for {commodity} in {market} on {future_date}: "
+                               f"{forecast_value:.2f} INR/kg**")
 
-                forecast_value = max(10, min(100, forecast_value))  # clamp realistic
-
-                st.success(f"🌟 Forecasted Price for {commodity} in {market} on {user_date}: "
-                           f"{forecast_value:.2f} INR/kg**")
-
-            except Exception as e:
-                st.error(f"Model failed: {e}")
+                except Exception as e:
+                    st.error(f"Model failed: {e}")
