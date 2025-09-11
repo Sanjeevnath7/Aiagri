@@ -28,7 +28,7 @@ body {
 .profile-box {
     background: linear-gradient(135deg, #4CAF50, #8BC34A);
     padding: 20px;
-    color: white;
+    color: black;
     border-radius: 12px;
     text-align: center;
 }
