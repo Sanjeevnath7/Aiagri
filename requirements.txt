@@ -4,3 +4,6 @@ numpy
 statsmodels
 scikit-learn
 xgboost
+matplotlib
+requests
+beautifulsoup4
